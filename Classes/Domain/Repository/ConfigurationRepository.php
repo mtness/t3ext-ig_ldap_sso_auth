@@ -36,8 +36,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 class ConfigurationRepository
 {
-    /** @var string */
-    protected $table = 'tx_igldapssoauth_config';
+    protected string $table = 'tx_igldapssoauth_config';
+
+    protected string $frontendUsersBaseDnField = 'fe_users_basedn';
+
+    protected string $backendUsersBaseDnField = 'be_users_basedn';
 
     /**
      * @var bool Set to true to also fetch disabled records (according to TCA enable fields)
@@ -79,19 +82,17 @@ class ConfigurationRepository
             )
             ->fetchAllAssociative();
 
-        $configurations = [];
-        foreach ($rows as $row) {
-            /** @var \Causal\IgLdapSsoAuth\Domain\Model\Configuration $configuration */
-            $configuration = GeneralUtility::makeInstance(Configuration::class);
-            $this->thawProperties($configuration, $row);
-            $configurations[] = $configuration;
-        }
+        return $this->hydrateConfigurations($rows);
+    }
 
-        /** @var ConfigurationLoadedEvent $event */
-        $event = GeneralUtility::makeInstance(ConfigurationLoadedEvent::class, $configurations);
-        $this->eventDispatcher->dispatch($event);
+    public function findByFrontendAuthentication(): array
+    {
+        return $this->findByUsersBaseDnField($this->frontendUsersBaseDnField);
+    }
 
-        return $event->getConfigurationRecords();
+    public function findByBackendAuthentication(): array
+    {
+        return $this->findByUsersBaseDnField($this->backendUsersBaseDnField);
     }
 
     /**
@@ -138,6 +139,43 @@ class ConfigurationRepository
     {
         $this->fetchDisabledRecords = $flag;
         return $this;
+    }
+
+    protected function findByUsersBaseDnField(string $usersBaseDnField): array
+    {
+        $rows = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable($this->table)
+            ->select(
+                ['*'],
+                $this->table,
+                [
+                    sprintf('%s !=', $usersBaseDnField) => '',
+                ],
+                [],
+                [
+                    'sorting' => 'ASC',
+                ]
+            )
+            ->fetchAllAssociative();
+
+        return $this->hydrateConfigurations($rows);
+    }
+
+    protected function hydrateConfigurations(array $rows): array
+    {
+        $configurations = [];
+        foreach ($rows as $row) {
+            /** @var \Causal\IgLdapSsoAuth\Domain\Model\Configuration $configuration */
+            $configuration = GeneralUtility::makeInstance(Configuration::class);
+            $this->thawProperties($configuration, $row);
+            $configurations[] = $configuration;
+        }
+
+        /** @var ConfigurationLoadedEvent $event */
+        $event = GeneralUtility::makeInstance(ConfigurationLoadedEvent::class, $configurations);
+        $this->eventDispatcher->dispatch($event);
+
+        return $event->getConfigurationRecords();
     }
 
     /**
