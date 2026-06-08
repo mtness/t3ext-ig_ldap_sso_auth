@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /*
@@ -143,19 +144,20 @@ class ConfigurationRepository
 
     protected function findByUsersBaseDnField(string $usersBaseDnField): array
     {
-        $rows = GeneralUtility::makeInstance(ConnectionPool::class)
-            ->getConnectionForTable($this->table)
-            ->select(
-                ['*'],
-                $this->table,
-                [
-                    sprintf('%s !=', $usersBaseDnField) => '',
-                ],
-                [],
-                [
-                    'sorting' => 'ASC',
-                ]
+        $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getQueryBuilderForTable($this->table);
+
+        $rows = $queryBuilder
+            ->select('*')
+            ->from($this->table)
+            ->where(
+                $queryBuilder->expr()->neq(
+                    $usersBaseDnField,
+                    $queryBuilder->createNamedParameter('')
+                )
             )
+            ->orderBy('sorting', 'ASC')
+            ->executeQuery()
             ->fetchAllAssociative();
 
         return $this->hydrateConfigurations($rows);
