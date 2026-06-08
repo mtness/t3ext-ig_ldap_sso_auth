@@ -97,7 +97,9 @@ class AuthenticationService extends \TYPO3\CMS\Core\Authentication\Authenticatio
 
         /** @var ConfigurationRepository $configurationRepository */
         $configurationRepository = GeneralUtility::makeInstance(ConfigurationRepository::class);
-        $configurationRecords = $configurationRepository->findAll();
+        $configurationRecords = $typo3Mode === 'FE'
+            ? $configurationRepository->findByFrontendAuthentication()
+            : $configurationRepository->findByBackendAuthentication();
 
         if (empty($configurationRecords)) {
             // Early return since LDAP is not configured
